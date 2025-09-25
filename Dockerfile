@@ -8,7 +8,7 @@ RUN useradd -ms /bin/bash work && \
     echo "work ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER work
 
-COPY ./src ./src
+# COPY ./src ./src
 # RUN . /opt/ros/$ROS_DISTRO/setup.sh && colcon build --symlink-install
 
 
