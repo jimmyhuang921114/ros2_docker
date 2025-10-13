@@ -16,12 +16,7 @@ done
 echo -e "${YELLOW}Mounting host dir: ${MOUNT_DIR}${NC}"
 
 GPU_FLAG=""
-if command -v nvidia-smi &>/dev/null; then  
-  GPU_FLAG="--gpus all"
-  echo -e "${GREEN}GPU detected.${NC} Enabling GPU support for Docker."
-else
-  echo -e "${YELLOW}Warning:${NC} GPU not detected. Running without GPU support."
-fi
+
 
 
 
