@@ -1,1 +1,1 @@
-docker build -t robotsot:latest .
+docker build -f Dockerfile -t arm_ws:latest ..  
