@@ -56,18 +56,17 @@ RUN git clone --depth 1 -b v2.57.5 https://github.com/realsenseai/librealsense.g
  && rm -rf /tmp/librealsense
 
 # create workspace
-WORKDIR /ros_ws
-RUN mkdir -p /ros_ws/src
+WORKDIR /ros2_ws/src
 
 # copy repos file into tmp package
 COPY src/tb4_arm_ros2/dynamixel_control.repos /tmp/dynamixel_control.repos
 
 # using vcs to install repos dep
-RUN vcs import /ros_ws/src < /tmp/dynamixel_control.repos
+RUN vcs import /ros2_ws/src < /tmp/dynamixel_control.repos
 
 #install rosdep in workspace 
 RUN apt-get update \
- && rosdep install --from-paths /ros_ws/src --ignore-src -r -y --rosdistro humble \
+ && rosdep install --from-paths /ros2_ws/src --ignore-src -r -y --rosdistro humble \
  && rm -rf /var/lib/apt/lists/*
 
 # python dep
@@ -76,7 +75,6 @@ RUN python3 -m pip install --no-cache-dir \
     opencv-contrib-python==4.11.0.86 \
     numpy==1.26.4
 
-RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 
 # copy entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
@@ -98,7 +96,7 @@ RUN mkdir -p /home/${USER} \
 
 USER ${USER}
 ENV HOME=/home/${USER}
-WORKDIR /home/${USER}
+# WORKDIR /home/${USER}
 
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USER}/.bashrc
 
