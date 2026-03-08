@@ -6,10 +6,7 @@ set -e
 # -------------------------------
 source /opt/ros/humble/setup.bash
 
-# 如果有 workspace 可以一起 source
-if [ -f "/workspaces/install/setup.bash" ]; then
-  source /workspaces/install/setup.bash
-fi
+
 
 export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 export RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
