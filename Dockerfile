@@ -66,7 +66,7 @@ RUN vcs import /ros2_ws/src < /tmp/dynamixel_control.repos
 
 #install rosdep in workspace 
 RUN apt-get update \
- && rosdep install --from-paths /ros2_ws/src --ignore-src -r -y --rosdistro humble \
+ && rosdep install --from-paths /ro_ws/src --ignore-src -r -y --rosdistro humble \
  && rm -rf /var/lib/apt/lists/*
 
 # python dep
