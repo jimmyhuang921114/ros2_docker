@@ -1,29 +1,38 @@
-# base image
 FROM osrf/ros:humble-desktop-full
 
-# arguments
 ARG USER=work
 ARG GROUP=work
 ARG UID=1000
 ARG GID=1000
 ARG SHELL=/bin/bash
 
-# environment
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=all
 ENV DEBIAN_FRONTEND=noninteractive
-
 
 SHELL ["/bin/bash", "-c"]
 
-# ROS2 dep
+# base tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    sudo git htop wget curl psmisc tmux udev libtool \
+    sudo \
+    git \
+    wget \
+    curl \
+    htop \
+    tmux \
+    psmisc \
     terminator \
-    python3-pip python3-dev python3-setuptools \
+    python3-pip \
+    python3-dev \
+    python3-setuptools \
     python3-colcon-common-extensions \
-    python3-rosdep python3-vcstool \
-    software-properties-common lsb-release \
+    python3-rosdep \
+    python3-vcstool \
+    build-essential \
+    cmake \
+    pkg-config \
+    libusb-1.0-0-dev \
+    libglfw3-dev \
+    libgtk-3-dev \
+    libssl-dev \
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-moveit \
     ros-humble-moveit-setup-assistant \
@@ -36,74 +45,76 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-visp \
  && rm -rf /var/lib/apt/lists/*
 
-# rosdep init
+# rosdep
 RUN rosdep init || true && rosdep update
 
-# realsense install
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake pkg-config \
-    libusb-1.0-0-dev libglfw3-dev libgtk-3-dev \
-    libssl-dev \
- && rm -rf /var/lib/apt/lists/*
-
-# clone and cmake librealsense
+# librealsense
 RUN git clone --depth 1 -b v2.57.5 https://github.com/realsenseai/librealsense.git /tmp/librealsense \
  && cd /tmp/librealsense \
- && mkdir -p build && cd build \
+ && mkdir build \
+ && cd build \
  && cmake .. \
- && make -j"$(nproc)" \
+ && make -j$(nproc) \
  && make install \
  && rm -rf /tmp/librealsense
 
-# create workspace
-WORKDIR /ros2_ws/src
-
-# copy repos file into tmp package
-COPY src/tb4_arm_ros2/dynamixel_control.repos /tmp/dynamixel_control.repos
-
-# using vcs to install repos dep
-RUN vcs import /ros2_ws/src < /tmp/dynamixel_control.repos
-
-#install rosdep in workspace 
-RUN apt-get update \
- && rosdep install --from-paths /ros2_ws/src --ignore-src -r -y --rosdistro humble \
- && rm -rf /var/lib/apt/lists/*
-
-# python dep
-RUN python3 -m pip install --no-cache-dir \
+# python deps
+RUN pip install --no-cache-dir \
     opencv-python==4.11.0.86 \
     opencv-contrib-python==4.11.0.86 \
     numpy==1.26.4
 
+# -----------------------------
+# underlay workspace in image
+# -----------------------------
+RUN mkdir -p /opt/robot_ws/src
+WORKDIR /opt/robot_ws
 
-# copy entrypoint script
+# copy repos file for underlay deps
+COPY src/tb4_arm_ros2/dynamixel_control.repos /tmp/dynamixel_control.repos
+
+# import source deps into underlay
+RUN vcs import src < /tmp/dynamixel_control.repos
+
+# install dependencies for underlay
+# skip dynamixel_sdk if you provide it from source in repos
+RUN source /opt/ros/humble/setup.bash \
+ && rosdep install \
+      --from-paths src \
+      --ignore-src \
+      --rosdistro humble \
+      -r -y \
+      --skip-keys="dynamixel_sdk"
+
+# build underlay
+# RUN source /opt/ros/humble/setup.bash \
+#  && colcon build --symlink-install
+
+# -----------------------------
+# user workspace mount point
+# -----------------------------
+RUN mkdir -p /work/src
+
+# entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# create user and add into group
+# create user
 RUN groupadd -g ${GID} ${GROUP} \
  && useradd -m -u ${UID} -g ${GID} -s ${SHELL} ${USER} \
  && usermod -aG sudo ${USER} \
  && echo "${USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER} \
  && chmod 0440 /etc/sudoers.d/${USER}
 
-# make sure bashrc exists for the user
-RUN mkdir -p /home/${USER} \
- && chown -R ${UID}:${GID} /home/${USER} \
- && touch /home/${USER}/.bashrc \
- && chown ${UID}:${GID} /home/${USER}/.bashrc
-
+RUN chown -R ${UID}:${GID} /opt/robot_ws /work /home/${USER}
 
 USER ${USER}
 ENV HOME=/home/${USER}
-# WORKDIR /home/${USER}
+WORKDIR /work
 
-RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USER}/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USER}/.bashrc \
+ && echo "source /opt/robot_ws/install/setup.bash" >> /home/${USER}/.bashrc \
+ && echo 'if [ -f /work/install/setup.bash ]; then source /work/install/setup.bash; fi' >> /home/${USER}/.bashrc
 
-
-
-# container start use this entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
-
-# bash
 CMD ["bash"]
